@@ -700,7 +700,6 @@ public int main (string[] args) {
 
 	var suite = new TestSuite ("indicator-keyboard");
 
-	suite.add (new TestCase ("activate-input-source", begin_test, test_activate_input_source, end_test, sizeof (Fixture)));
 	suite.add (new TestCase ("activate-character-map", begin_test, test_activate_character_map, end_test, sizeof (Fixture)));
 	suite.add (new TestCase ("activate-keyboard-layout-chart", begin_test, test_activate_keyboard_layout_chart, end_test, sizeof (Fixture)));
 	suite.add (new TestCase ("activate-text-entry-settings", begin_test, test_activate_text_entry_settings, end_test, sizeof (Fixture)));
