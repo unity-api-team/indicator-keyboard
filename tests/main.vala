@@ -243,122 +243,6 @@ public class Tests : Object, Fixture {
 		assert (strcmp ((!) ((!) _service).command, "'unity-control-center region layouts'") == 0);
 	}
 
-	public void test_migration () {
-		try {
-			var migrated = false;
-			var sources = "[('xkb', 'us')]";
-			var layouts = "['us', 'ca\teng', 'epo']";
-			Process.spawn_command_line_sync (@"gsettings set com.canonical.indicator.keyboard migrated $migrated");
-			Process.spawn_command_line_sync (@"gsettings set org.gnome.desktop.input-sources sources \"$sources\"");
-			Process.spawn_command_line_sync (@"gsettings set org.gnome.libgnomekbd.keyboard layouts \"$layouts\"");
-		} catch (SpawnError error) {
-			Test.message ("error: %s", error.message);
-			Test.fail ();
-			return;
-		}
-
-		try {
-			var cancellable = new Cancellable ();
-
-			var source = Timeout.add_seconds (LONG_TIMEOUT_S, () => { cancellable.cancel (); return true; });
-
-			var dbus_proxy = new DBusProxy.sync ((!) _connection,
-			                                     DBusProxyFlags.NONE,
-			                                     null,
-			                                     "org.freedesktop.DBus",
-			                                     "/",
-			                                     "org.freedesktop.DBus",
-			                                     cancellable);
-
-			Source.remove (source);
-
-			if (cancellable.is_cancelled ()) {
-				Test.message ("error: Unable to connect to org.freedesktop.DBus.");
-				Test.fail ();
-				return;
-			}
-
-			dbus_proxy.call_sync ("StartServiceByName", new Variant ("(su)", "com.canonical.indicator.keyboard", 0), DBusCallFlags.NONE, TIMEOUT_MS);
-		} catch (Error error) {
-			Test.message ("error: %s", error.message);
-			Test.fail ();
-			return;
-		}
-
-		var loop = new MainLoop (null, false);
-		Timeout.add_seconds (TIMEOUT_S, () => { loop.quit (); return false; });
-		loop.run ();
-
-		try {
-			string sources;
-			Process.spawn_command_line_sync ("gsettings get org.gnome.desktop.input-sources sources", out sources);
-			stderr.printf ("sources = \"%s\"\n", sources);
-			assert (strcmp (sources, "[('xkb', 'us'), ('xkb', 'ca+eng'), ('xkb', 'epo')]\n") == 0);
-		} catch (SpawnError error) {
-			Test.message ("error: %s", error.message);
-			Test.fail ();
-			return;
-		}
-	}
-
-	public void test_no_migration () {
-		try {
-			var migrated = true;
-			var sources = "[('xkb', 'us')]";
-			var layouts = "['us', 'ca\teng', 'epo']";
-			Process.spawn_command_line_sync (@"gsettings set com.canonical.indicator.keyboard migrated $migrated");
-			Process.spawn_command_line_sync (@"gsettings set org.gnome.desktop.input-sources sources \"$sources\"");
-			Process.spawn_command_line_sync (@"gsettings set org.gnome.libgnomekbd.keyboard layouts \"$layouts\"");
-		} catch (SpawnError error) {
-			Test.message ("error: %s", error.message);
-			Test.fail ();
-			return;
-		}
-
-		try {
-			var cancellable = new Cancellable ();
-
-			var source = Timeout.add_seconds (LONG_TIMEOUT_S, () => { cancellable.cancel (); return true; });
-
-			var dbus_proxy = new DBusProxy.sync ((!) _connection,
-			                                     DBusProxyFlags.NONE,
-			                                     null,
-			                                     "org.freedesktop.DBus",
-			                                     "/",
-			                                     "org.freedesktop.DBus",
-			                                     cancellable);
-
-			Source.remove (source);
-
-			if (cancellable.is_cancelled ()) {
-				Test.message ("error: Unable to connect to org.freedesktop.DBus.");
-				Test.fail ();
-				return;
-			}
-
-			dbus_proxy.call_sync ("StartServiceByName", new Variant ("(su)", "com.canonical.indicator.keyboard", 0), DBusCallFlags.NONE, TIMEOUT_MS);
-		} catch (Error error) {
-			Test.message ("error: %s", error.message);
-			Test.fail ();
-			return;
-		}
-
-		var loop = new MainLoop (null, false);
-		Timeout.add_seconds (TIMEOUT_S, () => { loop.quit (); return false; });
-		loop.run ();
-
-		try {
-			string sources;
-			Process.spawn_command_line_sync ("gsettings get org.gnome.desktop.input-sources sources", out sources);
-			stderr.printf ("sources = \"%s\"\n", sources);
-			assert (strcmp (sources, "[('xkb', 'us')]\n") == 0);
-		} catch (SpawnError error) {
-			Test.message ("error: %s", error.message);
-			Test.fail ();
-			return;
-		}
-	}
-
 	public void test_update_visible () {
 		bool visible;
 
@@ -636,8 +520,6 @@ public int main (string[] args) {
 	Test.add_data_func ("/indicator-keyboard-service/activate-character-map", Fixture.create<Tests> (Tests.test_activate_character_map));
 	Test.add_data_func ("/indicator-keyboard-service/activate-keyboard-layout-chart", Fixture.create<Tests> (Tests.test_activate_keyboard_layout_chart));
 	Test.add_data_func ("/indicator-keyboard-service/activate-text-entry-settings", Fixture.create<Tests> (Tests.test_activate_text_entry_settings));
-	Test.add_data_func ("/indicator-keyboard-service/migration", Fixture.create<Tests> (Tests.test_migration));
-	Test.add_data_func ("/indicator-keyboard-service/no-migration", Fixture.create<Tests> (Tests.test_no_migration));
 	Test.add_data_func ("/indicator-keyboard-service/update-visible", Fixture.create<Tests> (Tests.test_update_visible));
 	Test.add_data_func ("/indicator-keyboard-service/update-input-source", Fixture.create<Tests> (Tests.test_update_input_source));
 	Test.add_data_func ("/indicator-keyboard-service/update-input-sources", Fixture.create<Tests> (Tests.test_update_input_sources));

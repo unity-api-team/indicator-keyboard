@@ -386,58 +386,6 @@ public class Indicator.Keyboard.Service : Object {
 
 			/* Force the loading of the user list. */
 			user_list.get_user_by_name ("");
-		} else {
-			if (!indicator_settings.get_boolean ("migrated")) {
-				var builder = new VariantBuilder (new VariantType ("a(ss)"));
-				var length = 0;
-
-				var layout_settings = new Settings ("org.gnome.libgnomekbd.keyboard");
-				var layouts = layout_settings.get_strv ("layouts");
-
-				foreach (var layout in layouts) {
-					var source = layout;
-					source = source.replace (" ", "+");
-					source = source.replace ("\t", "+");
-
-					builder.add ("(ss)", "xkb", source);
-					length++;
-				}
-
-				var engines = get_ibus ().list_active_engines ();
-
-				foreach (var engine in engines) {
-					if (length == 0 || engine.name.has_prefix ("xkb")) {
-						var source = "us";
-						string? layout = engine.get_layout ();
-						string? variant = engine.get_layout_variant ();
-
-						if (layout != null && ((!) layout).length == 0) {
-							layout = null;
-						}
-
-						if (variant != null && ((!) variant).length == 0) {
-							variant = null;
-						}
-
-						if (layout != null && variant != null) {
-							source = @"$((!) layout)+$((!) variant)";
-						} else if (layout != null) {
-							source = (!) layout;
-						}
-
-						builder.add ("(ss)", "xkb", source);
-						length++;
-					}
-
-					if (!engine.name.has_prefix ("xkb")) {
-						builder.add ("(ss)", "ibus", engine.name);
-						length++;
-					}
-				}
-
-				source_settings.set_value ("sources", builder.end ());
-				indicator_settings.set_boolean ("migrated", true);
-			}
 		}
 	}
 
