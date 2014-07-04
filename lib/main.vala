@@ -147,7 +147,41 @@ public class Indicator.Keyboard.Service : Object {
 
 	[DBus (visible = false)]
 	private static bool are_sources_equal (Variant a, Variant b) {
-		return false;
+		if (a == b) {
+			return true;
+		}
+
+		var c = new Gee.HashMap<string, string> ();
+		var d = new Gee.HashMap<string, string> ();
+
+		string key;
+		string value;
+
+		var iter = a.iterator ();
+
+		while (iter.next ("{&s&s}", out key, out value)) {
+			c[key] = value;
+		}
+
+		iter = b.iterator ();
+
+		/* Is everything in b in a? */
+		while (iter.next ("{&s&s}", out key, out value)) {
+			if (!c.has_key (key) || c[key] != value) {
+				return false;
+			}
+
+			d[key] = value;
+		}
+
+		/* Is everything in a in b? */
+		foreach (var entry in c.entries) {
+			if (!d.has_key (entry.key) || d[entry.key] != entry.value) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	[DBus (visible = false)]
