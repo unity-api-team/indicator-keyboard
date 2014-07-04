@@ -30,7 +30,8 @@ public class Indicator.Keyboard.Service : Object {
 	private Settings indicator_settings;
 	private Settings source_settings;
 	private Settings per_window_settings;
-	private SList<Act.User> users;
+	private Act.User? accountsservice_user;
+	private Gee.HashMap<Act.User, ulong> user_signal_ids;
 
 	private WindowStack? window_stack;
 	private Gee.HashMap<uint, uint>? window_sources;
@@ -130,12 +131,11 @@ public class Indicator.Keyboard.Service : Object {
 
 		source_settings = new Settings ("org.gnome.desktop.input-sources");
 		source_settings.changed["current"].connect (handle_changed_current);
-		source_settings.changed["sources"].connect (handle_changed_sources);
 
 		per_window_settings = new Settings ("org.gnome.libgnomekbd.desktop");
 		per_window_settings.changed["group-per-window"].connect (handle_changed_group_per_window);
 
-		migrate_keyboard_layouts ();
+		load_accountsservice_manager ();
 		update_window_sources ();
 		acquire_bus_name ();
 	}
@@ -143,6 +143,241 @@ public class Indicator.Keyboard.Service : Object {
 	[DBus (visible = false)]
 	private static bool is_login_user () {
 		return Environment.get_user_name () == "lightdm";
+	}
+
+	[DBus (visible = false)]
+	private static bool are_sources_equal (Variant a, Variant b) {
+		return false;
+	}
+
+	[DBus (visible = false)]
+	private Gee.LinkedList<Variant> get_system_sources (Act.UserManager manager) {
+		var sources = new Gee.LinkedList<Variant> ((EqualFunc) are_sources_equal);
+		var users = manager.list_users ();
+
+		foreach (var user in users) {
+			if (user.is_loaded) {
+				var added = false;
+				Variant? user_sources = user.input_sources;
+
+				/* Try adding user input sources from AccountsService. */
+				if (user_sources != null) {
+					VariantIter iter;
+
+					((!) user_sources).get ("aa{ss}", out iter);
+
+					for (var user_source = iter.next_value (); user_source != null; user_source = iter.next_value ()) {
+						added = true;
+
+						if (!sources.contains ((!) user_source)) {
+							sources.add ((!) user_source);
+						}
+					}
+				}
+
+				if (!added) {
+					/* Try adding user keyboard layouts from AccountsService. */
+					string[]? user_layouts = user.xkeyboard_layouts;
+
+					if (user_layouts != null) {
+						foreach (var user_layout in user_layouts) {
+							added = true;
+
+							var builder = new VariantBuilder (new VariantType ("a{ss}"));
+							builder.add ("{ss}", "xkb", user_layout.replace (" ", "+").replace ("\t", "+"));
+							var user_source = builder.end ();
+
+							if (!sources.contains (user_source)) {
+								sources.add (user_source);
+							}
+						}
+					}
+				}
+
+				if (!added) {
+					/* Try adding user keyboard layouts from LightDM. */
+					var user_list = LightDM.UserList.get_instance ();
+					LightDM.User? lightdm_user = user_list.get_user_by_name (user.user_name);
+
+					if (lightdm_user != null) {
+						string[]? user_layouts = ((!) lightdm_user).get_layouts ();
+
+						if (user_layouts != null) {
+							foreach (var user_layout in user_layouts) {
+								var builder = new VariantBuilder (new VariantType ("a{ss}"));
+								builder.add ("{ss}", "xkb", user_layout.replace (" ", "+").replace ("\t", "+"));
+								var user_source = builder.end ();
+
+								if (!sources.contains (user_source)) {
+									sources.add (user_source);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		/* Try adding system keyboard layout from LightDM. */
+		LightDM.Layout? system_layout = LightDM.get_layout ();
+
+		if (system_layout != null) {
+			string? system_layout_name = ((!) system_layout).name;
+
+			if (system_layout_name != null) {
+				var builder = new VariantBuilder (new VariantType ("a{ss}"));
+				builder.add ("{ss}", "xkb", ((!) system_layout_name).replace (" ", "+").replace ("\t", "+"));
+				var system_source = builder.end ();
+
+				if (!sources.contains (system_source)) {
+					sources.add (system_source);
+				}
+			}
+		}
+
+		return sources;
+	}
+
+	[DBus (visible = false)]
+	private void select_greeter_source () {
+		if (greeter_user == null && unity_greeter != null) {
+			try {
+				greeter_user = ((!) unity_greeter).get_active_entry ();
+			} catch (IOError error) {
+				warning ("error: %s", error.message);
+			}
+		}
+
+		var manager = Act.UserManager.get_default ();
+
+		if (greeter_user != null && manager.is_loaded && accountsservice_user != null) {
+			Act.User? user = manager.get_user ((!) greeter_user);
+
+			if (user != null && ((!) user).is_loaded) {
+				Variant? system_sources = ((!) accountsservice_user).input_sources;
+				Variant? user_sources = ((!) user).input_sources;
+
+				if (system_sources != null && user_sources != null) {
+					VariantIter user_iter;
+
+					((!) user_sources).get ("aa{ss}", out user_iter);
+
+					for (var user_source = user_iter.next_value (); user_source != null; user_source = user_iter.next_value ()) {
+						if (!((!) user_source).lookup ("ibus", "&s", null)) {
+							var found = false;
+
+							for (var i = 0; i < ((!) system_sources).n_children (); i++) {
+								if (are_sources_equal (((!) system_sources).get_child_value (i), (!) user_source)) {
+									source_settings.set_uint ("current", i);
+									found = true;
+									break;
+								}
+							}
+
+							if (found)
+								break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	[DBus (visible = false)]
+	private void update_system_sources (Act.UserManager manager, Act.User user) {
+		/* When a user is loaded, update the system sources. */
+		foreach (var u in manager.list_users ()) {
+			if (!u.is_loaded && !user_signal_ids.has_key (u)) {
+				user_signal_ids[u] = u.notify["is-loaded"].connect (() => {
+					if (u.is_loaded) {
+						u.disconnect (user_signal_ids[u]);
+						user_signal_ids.unset (u);
+						update_system_sources (manager, user);
+					}
+				});
+			}
+		}
+
+		var sources = get_system_sources (manager);
+		var builder = new VariantBuilder (new VariantType ("aa{ss}"));
+
+		foreach (var source in sources) {
+			builder.add_value (source);
+		}
+
+		user.set_input_sources (builder.end ());
+
+		/* Clamp the memorized index to the size of the list. */
+		source_settings.set_uint ("current", uint.min (lightdm_current, sources.size - 1));
+
+		select_greeter_source ();
+	}
+
+	[DBus (visible = false)]
+	private void finish_loading_accountsservice_user (Act.UserManager manager, Act.User user) {
+		accountsservice_user = user;
+
+		if (is_login_user ()) {
+			user_signal_ids = new Gee.HashMap<Act.User, ulong> ();
+			lightdm_current = source_settings.get_uint ("current");
+
+			manager.user_added.connect (() => { update_system_sources (manager, user); });
+			manager.user_changed.connect (() => { update_system_sources (manager, user); });
+			manager.user_removed.connect (() => { update_system_sources (manager, user); });
+
+			var user_list = LightDM.UserList.get_instance ();
+
+			user_list.user_added.connect (() => { update_system_sources (manager, user); });
+			user_list.user_changed.connect (() => { update_system_sources (manager, user); });
+			user_list.user_removed.connect (() => { update_system_sources (manager, user); });
+
+			/* Force the loading of the user list. */
+			user_list.get_user_by_name ("");
+
+			update_system_sources (manager, user);
+		}
+
+		user.notify["input-sources"].connect (() => { handle_changed_sources (user); });
+
+		handle_changed_sources (user);
+	}
+
+	[DBus (visible = false)]
+	private void load_accountsservice_user (Act.UserManager manager) {
+		Act.User? user = manager.get_user (Environment.get_user_name ());
+
+		if (user != null) {
+			if (((!) user).is_loaded) {
+				finish_loading_accountsservice_user (manager, (!) user);
+			} else {
+				ulong user_loaded_id = 0;
+
+				user_loaded_id = ((!) user).notify["is-loaded"].connect (() => {
+					if (((!) user).is_loaded) {
+						((!) user).disconnect (user_loaded_id);
+						finish_loading_accountsservice_user (manager, (!) user);
+					}
+				});
+			}
+		}
+	}
+
+	[DBus (visible = false)]
+	private void load_accountsservice_manager () {
+		var manager = Act.UserManager.get_default ();
+
+		if (manager.is_loaded) {
+			load_accountsservice_user (manager);
+		} else {
+			ulong manager_loaded_id = 0;
+
+			manager_loaded_id = manager.notify["is-loaded"].connect (() => {
+				if (manager.is_loaded) {
+					manager.disconnect (manager_loaded_id);
+					load_accountsservice_user (manager);
+				}
+			});
+		}
 	}
 
 	[DBus (visible = false)]
@@ -236,260 +471,12 @@ public class Indicator.Keyboard.Service : Object {
 	}
 
 	[DBus (visible = false)]
-	private void update_greeter_user () {
-		if (greeter_user == null && unity_greeter != null) {
-			try {
-				greeter_user = ((!) unity_greeter).get_active_entry ();
-			} catch (IOError error) {
-				warning ("error: %s", error.message);
-			}
-		}
-
-		string? source = null;
-
-		if (greeter_user != null) {
-			var manager = Act.UserManager.get_default ();
-
-			if (manager.is_loaded) {
-				Act.User? user = manager.get_user ((!) greeter_user);
-
-				if (user != null && ((!) user).is_loaded) {
-					VariantIter outer;
-					VariantIter inner;
-
-					var sources = ((!) user).input_sources;
-					sources.get ("aa{ss}", out outer);
-
-					while (outer.next ("a{ss}", out inner)) {
-						unowned string key;
-						unowned string value;
-
-						while (inner.next ("{&s&s}", out key, out value)) {
-							if (key == "xkb") {
-								source = value;
-								break;
-							}
-						}
-
-						if (source != null) {
-							break;
-						}
-					}
-
-					if (source == null) {
-						var layouts = ((!) user).xkeyboard_layouts;
-
-						if (layouts.length <= 0) {
-							var user_list = LightDM.UserList.get_instance ();
-							LightDM.User? light_user = user_list.get_user_by_name ((!) greeter_user);
-
-							if (light_user != null) {
-								layouts = ((!) light_user).get_layouts ();
-							}
-						}
-
-						if (layouts.length > 0) {
-							source = layouts[0];
-							source = ((!) source).replace (" ", "+");
-							source = ((!) source).replace ("\t", "+");
-						}
-					}
-				}
-			}
-		}
-
-		if (source == null) {
-			LightDM.Layout? layout = LightDM.get_layout ();
-
-			if (layout != null) {
-				source = ((!) layout).name;
-
-				if (source != null) {
-					source = ((!) source).replace (" ", "+");
-					source = ((!) source).replace ("\t", "+");
-				}
-			}
-		}
-
-		if (source != null) {
-			var array = source_settings.get_value ("sources");
-
-			for (var i = 0; i < array.n_children (); i++) {
-				unowned string type;
-				unowned string name;
-
-				array.get_child (i, "(&s&s)", out type, out name);
-
-				if (type == "xkb" && name == (!) source) {
-					source_settings.set_uint ("current", i);
-					break;
-				}
-			}
-		}
-	}
-
-	[DBus (visible = false)]
 	private void handle_entry_selected (string entry_name) {
 		if (greeter_user == null || entry_name != (!) greeter_user) {
 			greeter_user = entry_name;
 
-			update_greeter_user ();
+			select_greeter_source ();
 		}
-	}
-
-	[DBus (visible = false)]
-	private void migrate_keyboard_layouts () {
-		if (is_login_user ()) {
-			lightdm_current = source_settings.get_uint ("current");
-
-			var manager = Act.UserManager.get_default ();
-
-			if (manager.is_loaded) {
-				users = manager.list_users ();
-
-				foreach (var user in users) {
-					if (user.is_loaded) {
-						migrate_input_sources ();
-					} else {
-						user.notify["is-loaded"].connect ((pspec) => {
-							if (user.is_loaded) {
-								migrate_input_sources ();
-							}
-						});
-					}
-				}
-			} else {
-				manager.notify["is-loaded"].connect ((pspec) => {
-					if (manager.is_loaded) {
-						users = manager.list_users ();
-
-						foreach (var user in users) {
-							if (user.is_loaded) {
-								migrate_input_sources ();
-							} else {
-								user.notify["is-loaded"].connect ((pspec) => {
-									if (user.is_loaded) {
-										migrate_input_sources ();
-									}
-								});
-							}
-						}
-					}
-				});
-			}
-
-			var user_list = LightDM.UserList.get_instance ();
-
-			user_list.user_added.connect ((user) => { migrate_input_sources (); });
-			user_list.user_changed.connect ((user) => { migrate_input_sources (); });
-			user_list.user_removed.connect ((user) => { migrate_input_sources (); });
-
-			/* Force the loading of the user list. */
-			user_list.get_user_by_name ("");
-		}
-	}
-
-	[DBus (visible = false)]
-	private void migrate_input_sources () {
-		var list = new Gee.LinkedList<string> ();
-		var added = new Gee.HashSet<string> ();
-
-		foreach (var user in users) {
-			if (user.is_loaded) {
-				var done = false;
-
-				VariantIter outer;
-				VariantIter inner;
-
-				var sources = user.input_sources;
-				sources.get ("aa{ss}", out outer);
-
-				while (outer.next ("a{ss}", out inner)) {
-					unowned string key;
-					unowned string source;
-
-					while (inner.next ("{&s&s}", out key, out source)) {
-						if (key == "xkb") {
-							done = true;
-
-							if (!added.contains (source)) {
-								list.add (source);
-								added.add (source);
-							}
-						}
-					}
-				}
-
-				if (!done) {
-					var layouts = user.xkeyboard_layouts;
-					foreach (var layout in layouts) {
-						done = true;
-
-						var source = layout;
-						source = source.replace (" ", "+");
-						source = source.replace ("\t", "+");
-
-						if (!added.contains (source)) {
-							list.add (source);
-							added.add (source);
-						}
-					}
-				}
-
-				if (!done) {
-					var user_list = LightDM.UserList.get_instance ();
-					LightDM.User? light_user = user_list.get_user_by_name (user.user_name);
-
-					if (light_user != null) {
-						var layouts = ((!) light_user).get_layouts ();
-						foreach (var layout in layouts) {
-							done = true;
-
-							var source = layout;
-							source = source.replace (" ", "+");
-							source = source.replace ("\t", "+");
-
-							if (!added.contains (source)) {
-								list.add (source);
-								added.add (source);
-							}
-						}
-					}
-				}
-			}
-		}
-
-		LightDM.Layout? layout = LightDM.get_layout ();
-
-		if (layout != null) {
-			string? source = ((!) layout).name;
-
-			if (source != null) {
-				source = ((!) source).replace (" ", "+");
-				source = ((!) source).replace ("\t", "+");
-
-				if (!added.contains ((!) source)) {
-					list.add ((!) source);
-					added.add ((!) source);
-				}
-			}
-		}
-
-		var builder = new VariantBuilder (new VariantType ("a(ss)"));
-
-		foreach (var name in list) {
-			builder.add ("(ss)", "xkb", name);
-		}
-
-		if (lightdm_current < list.size) {
-			source_settings.set_uint ("current", lightdm_current);
-		} else {
-			source_settings.set_uint ("current", list.size - 1);
-		}
-
-		source_settings.set_value ("sources", builder.end ());
-
-		update_greeter_user ();
 	}
 
 	[DBus (visible = false)]
@@ -582,36 +569,41 @@ public class Indicator.Keyboard.Service : Object {
 
 	[DBus (visible = false)]
 	private Source[] get_sources () {
-		if (sources == null) {
-			var array = source_settings.get_value ("sources");
+		if (sources == null && accountsservice_user != null) {
+			Variant? array = ((!) accountsservice_user).input_sources;
 
-			sources = new Source[array.n_children ()];
+			if (array != null) {
+				sources = new Source[((!) array).n_children ()];
 
-			for (var i = 0; i < ((!) sources).length; i++) {
-				sources[i] = new Source(array.get_child_value (i), use_gtk);
-				sources[i].show_subscript = false;
-				sources[i].subscript = 1;
+				for (var i = 0; i < ((!) sources).length; i++) {
+					sources[i] = new Source(((!) array).get_child_value (i), use_gtk);
+					sources[i].show_subscript = false;
+					sources[i].subscript = 1;
 
-				for (var j = (int) i - 1; j >= 0; j--) {
-					if ((!) sources[j].short_name == (!) sources[i].short_name) {
-						sources[i].subscript = sources[j].subscript + 1;
-						sources[i].show_subscript = true;
-						sources[j].show_subscript = true;
+					for (var j = (int) i - 1; j >= 0; j--) {
+						if ((!) sources[j].short_name == (!) sources[i].short_name) {
+							sources[i].subscript = sources[j].subscript + 1;
+							sources[i].show_subscript = true;
+							sources[j].show_subscript = true;
 
-						break;
+							break;
+						}
 					}
-				}
 
-				if (ibus_connected_id == 0 && sources[i].is_ibus) {
-					ibus_connected_id = get_ibus ().connected.connect (() => { get_ibus_panel (); });
-					get_ibus ().disconnected.connect (() => { ibus_panel = null; });
+					if (ibus_connected_id == 0 && sources[i].is_ibus) {
+						ibus_connected_id = get_ibus ().connected.connect (() => { get_ibus_panel (); });
+						get_ibus ().disconnected.connect (() => { ibus_panel = null; });
 
-					if (get_ibus ().is_connected ()) {
-						get_ibus_panel ();
+						if (get_ibus ().is_connected ()) {
+							get_ibus_panel ();
+						}
 					}
 				}
 			}
 		}
+
+		if (sources == null)
+			return new Source[0];
 
 		return (!) sources;
 	}
@@ -715,14 +707,17 @@ public class Indicator.Keyboard.Service : Object {
 
 	[DBus (visible = false)]
 	private void handle_scroll_wheel (Variant? parameter) {
-		if (parameter != null) {
-			var sources = source_settings.get_value ("sources");
-			var current = source_settings.get_uint ("current");
-			var length = (int) sources.n_children ();
+		if (parameter != null && accountsservice_user != null) {
+			Variant? sources = ((!) accountsservice_user).input_sources;
 
-			if (length > 0) {
-				var offset = ((!) parameter).get_int32 () % length;
-				source_settings.set_uint ("current", (current + (length - offset)) % length);
+			if (sources != null) {
+				var current = source_settings.get_uint ("current");
+				var length = (int) ((!) sources).n_children ();
+
+				if (length > 0) {
+					var offset = ((!) parameter).get_int32 () % length;
+					source_settings.set_uint ("current", (current + (length - offset)) % length);
+				}
 			}
 		}
 	}
@@ -888,7 +883,7 @@ public class Indicator.Keyboard.Service : Object {
 	}
 
 	[DBus (visible = false)]
-	private void handle_changed_sources (string key) {
+	private void handle_changed_sources (Act.User user) {
 		sources = null;
 
 		get_desktop_menu ().set_sources (get_sources ());
