@@ -196,9 +196,7 @@ public class Indicator.Keyboard.Service : Object {
 
 				/* Try adding user input sources from AccountsService. */
 				if (user_sources != null) {
-					VariantIter iter;
-
-					((!) user_sources).get ("aa{ss}", out iter);
+					var iter = ((!) user_sources).iterator ();
 
 					for (var user_source = iter.next_value (); user_source != null; user_source = iter.next_value ()) {
 						added = true;
@@ -292,11 +290,9 @@ public class Indicator.Keyboard.Service : Object {
 				Variant? user_sources = ((!) user).input_sources;
 
 				if (system_sources != null && user_sources != null) {
-					VariantIter user_iter;
+					var iter = ((!) user_sources).iterator ();
 
-					((!) user_sources).get ("aa{ss}", out user_iter);
-
-					for (var user_source = user_iter.next_value (); user_source != null; user_source = user_iter.next_value ()) {
+					for (var user_source = iter.next_value (); user_source != null; user_source = iter.next_value ()) {
 						if (!((!) user_source).lookup ("ibus", "&s", null)) {
 							var found = false;
 
