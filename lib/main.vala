@@ -154,8 +154,8 @@ public class Indicator.Keyboard.Service : Object {
 		var c = new Gee.HashMap<string, string> ();
 		var d = new Gee.HashMap<string, string> ();
 
-		string key;
-		string value;
+		unowned string key;
+		unowned string value;
 
 		var iter = a.iterator ();
 
