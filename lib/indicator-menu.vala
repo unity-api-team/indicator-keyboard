@@ -21,8 +21,9 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 	public enum Options {
 		NONE     = 0x0,
 		DCONF    = 0x1,
-		IBUS     = 0x2,
-		SETTINGS = 0x4
+		XKB      = 0x2,
+		IBUS     = 0x4,
+		SETTINGS = 0x8
 	}
 
 	private Options options;
@@ -76,7 +77,10 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 		sources_section.remove_all ();
 
 		for (var i = 0; i < sources.length; i++) {
-			if (!sources[i].is_ibus || (options & Options.IBUS) != Options.NONE) {
+			var visible = (sources[i].is_xkb && (options & Options.XKB) != Options.NONE) ||
+			              (sources[i].is_ibus && (options & Options.IBUS) != Options.NONE);
+
+			if (visible) {
 				string action;
 
 				if ((options & Options.DCONF) != Options.NONE) {

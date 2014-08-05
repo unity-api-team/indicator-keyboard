@@ -146,6 +146,18 @@ public class Indicator.Keyboard.Service : Object {
 	}
 
 	[DBus (visible = false)]
+	private static bool is_ibus_active () {
+		var module = Environment.get_variable ("GTK_IM_MODULE");
+		return module != null && (!) module == "ibus";
+	}
+
+	[DBus (visible = false)]
+	private static bool is_fcitx_active () {
+		var module = Environment.get_variable ("GTK_IM_MODULE");
+		return module != null && (!) module == "fcitx";
+	}
+
+	[DBus (visible = false)]
 	private IBus.Bus get_ibus () {
 		if (ibus == null) {
 			IBus.init ();
@@ -881,9 +893,14 @@ public class Indicator.Keyboard.Service : Object {
 	[DBus (visible = false)]
 	public IndicatorMenu get_desktop_menu () {
 		if (desktop_menu == null) {
-			var options = IndicatorMenu.Options.DCONF
-			            | IndicatorMenu.Options.IBUS
-			            | IndicatorMenu.Options.SETTINGS;
+			var options = IndicatorMenu.Options.NONE;
+
+			if (!is_fcitx_active ()) {
+				options = IndicatorMenu.Options.DCONF
+				        | IndicatorMenu.Options.XKB
+				        | IndicatorMenu.Options.IBUS
+				        | IndicatorMenu.Options.SETTINGS;
+			}
 
 			desktop_menu = new IndicatorMenu (get_action_group (), options);
 			((!) desktop_menu).set_sources (get_sources ());
@@ -906,7 +923,8 @@ public class Indicator.Keyboard.Service : Object {
 	[DBus (visible = false)]
 	public IndicatorMenu get_desktop_greeter_menu () {
 		if (desktop_greeter_menu == null) {
-			var options = IndicatorMenu.Options.DCONF;
+			var options = IndicatorMenu.Options.DCONF
+			            | IndicatorMenu.Options.XKB;
 
 			desktop_greeter_menu = new IndicatorMenu (get_action_group (), options);
 			((!) desktop_greeter_menu).set_sources (get_sources ());
@@ -918,7 +936,7 @@ public class Indicator.Keyboard.Service : Object {
 	[DBus (visible = false)]
 	public IndicatorMenu get_desktop_lockscreen_menu () {
 		if (desktop_lockscreen_menu == null) {
-			var options = IndicatorMenu.Options.NONE;
+			var options = IndicatorMenu.Options.XKB;
 
 			desktop_lockscreen_menu = new IndicatorMenu (get_action_group (), options);
 			((!) desktop_lockscreen_menu).set_sources (get_sources ());
