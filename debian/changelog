@@ -1,3 +1,10 @@
+indicator-keyboard (0.0.0+16.10.20160728-0ubuntu1) yakkety; urgency=medium
+
+  [ Lukáš Tinkl ]
+  * Launch u-s-s under Mir/Unity8
+
+ -- Robert Bruce Park <robert.park@canonical.com>  Thu, 28 Jul 2016 16:24:19 +0000
+
 indicator-keyboard (0.0.0+16.04.20151125-0ubuntu1) xenial; urgency=medium
 
   [ CI Train Bot ]
