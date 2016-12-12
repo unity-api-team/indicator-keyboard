@@ -1,3 +1,11 @@
+indicator-keyboard (0.0.0+17.04.20161212-0ubuntu1) zesty; urgency=medium
+
+  [ Michael Terry ]
+  * Work inside a snap by prefixing hard coded paths with $SNAP. (LP:
+    #1629009)
+
+ -- Rodney Dawes <rodney.dawes@canonical.com>  Mon, 12 Dec 2016 16:10:39 +0000
+
 indicator-keyboard (0.0.0+17.04.20161021-0ubuntu1) zesty; urgency=medium
 
   [ Ted Gould ]
