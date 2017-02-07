@@ -62,7 +62,6 @@ AC_SUBST(COVERAGE_LDFLAGS)
 
 AC_CONFIG_FILES([Makefile
                  data/Makefile
-                 data/upstart/Makefile
                  lib/Makefile
                  po/Makefile.in
                  tests/Makefile
