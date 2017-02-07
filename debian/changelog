@@ -1,3 +1,9 @@
+indicator-keyboard (0.0.0+17.04.20170207-0ubuntu1) zesty; urgency=medium
+
+  * Remove the xdg autostart files.
+
+ -- Rodney Dawes <rodney.dawes@canonical.com>  Tue, 07 Feb 2017 17:51:06 +0000
+
 indicator-keyboard (0.0.0+17.04.20161212-0ubuntu1) zesty; urgency=medium
 
   [ Michael Terry ]
