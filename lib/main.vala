@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 Canonical Ltd.
+ * Copyright 2013-2017 Canonical Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@ public class Indicator.Keyboard.Service : Object {
 	private Settings indicator_settings;
 	private Settings source_settings;
 	private Settings per_window_settings;
+	private Settings? unity8_settings;
 	private SList<Act.User> users;
 
 	private WindowStack? window_stack;
@@ -140,9 +141,17 @@ public class Indicator.Keyboard.Service : Object {
 		per_window_settings = new Settings ("org.gnome.libgnomekbd.desktop");
 		per_window_settings.changed["group-per-window"].connect (handle_changed_group_per_window);
 
+		unity8_settings = new Settings("com.canonical.Unity8");
+
 		migrate_keyboard_layouts ();
 		update_window_sources ();
 		acquire_bus_name ();
+	}
+
+	[DBus (visible = false)]
+	private static bool is_unity8_active() {
+		var socket = Environment.get_variable("MIR_SOCKET");
+		return socket != null;
 	}
 
 	[DBus (visible = false)]
@@ -1035,6 +1044,13 @@ public class Indicator.Keyboard.Service : Object {
 		action.activate.connect (handle_activate_settings);
 		group.add_action (action);
 
+		if (is_unity8_active()) {
+			Action? osk_action = ((!) unity8_settings).create_action("always-show-osk");
+			if (osk_action != null) {
+				group.add_action((!) osk_action);
+			}
+		}
+
 		return group;
 	}
 
@@ -1058,6 +1074,10 @@ public class Indicator.Keyboard.Service : Object {
 				if (is_ibus_active ()) {
 					options |= IndicatorMenu.Options.IBUS;
 				}
+			}
+
+			if (is_unity8_active()) {
+				options |= IndicatorMenu.Options.OSK_SWITCH;
 			}
 
 			var menu = new IndicatorMenu (get_action_group (), options);

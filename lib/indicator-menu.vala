@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Canonical Ltd.
+ * Copyright 2014-2017 Canonical Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,8 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 		DCONF    = 1 << 0,
 		XKB      = 1 << 1,
 		IBUS     = 1 << 2,
-		SETTINGS = 1 << 3
+		SETTINGS = 1 << 3,
+		OSK_SWITCH = 1 << 4
 	}
 
 	private Options options;
@@ -56,6 +57,14 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 				settings_section.append (_ ("Text Entry Settings..."), "indicator.settings");
 				submenu.append_section (null, settings_section);
 			}
+
+            if (Options.OSK_SWITCH in options) {
+                var osk_section = new Menu();
+                var osk_item = new MenuItem(_("On screen keyboard"), "indicator.always-show-osk");
+                osk_item.set_attribute("x-canonical-type", "s", "com.canonical.indicator.switch");
+                osk_section.append_item(osk_item);
+                submenu.append_section(null, osk_section);
+            }
 
 			var indicator = new MenuItem.submenu (null, submenu);
 			indicator.set_detailed_action ("indicator.indicator");
