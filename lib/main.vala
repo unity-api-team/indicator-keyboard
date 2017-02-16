@@ -141,7 +141,10 @@ public class Indicator.Keyboard.Service : Object {
 		per_window_settings = new Settings ("org.gnome.libgnomekbd.desktop");
 		per_window_settings.changed["group-per-window"].connect (handle_changed_group_per_window);
 
-		unity8_settings = new Settings("com.canonical.Unity8");
+        var sss = SettingsSchemaSource.get_default();
+        if (sss.lookup("com.canonical.Unity8", false) != null) {
+            unity8_settings = new Settings("com.canonical.Unity8");
+        }
 
 		migrate_keyboard_layouts ();
 		update_window_sources ();
@@ -1044,7 +1047,7 @@ public class Indicator.Keyboard.Service : Object {
 		action.activate.connect (handle_activate_settings);
 		group.add_action (action);
 
-		if (is_unity8_active()) {
+        if (is_unity8_active() && unity8_settings != null) {
 			Action? osk_action = ((!) unity8_settings).create_action("always-show-osk");
 			if (osk_action != null) {
 				group.add_action((!) osk_action);
