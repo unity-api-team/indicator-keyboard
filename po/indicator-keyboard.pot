@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2017-02-16 13:05+0100\n"
+"POT-Creation-Date: 2017-02-16 14:35+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,31 +17,31 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: ../lib/main.vala:849
+#: ../lib/main.vala:852
 #, c-format
 msgid "%s input source"
 msgstr ""
 
-#: ../lib/main.vala:853
+#: ../lib/main.vala:856
 msgid "Keyboard Layout"
 msgstr ""
 
-#: ../lib/main.vala:854
+#: ../lib/main.vala:857
 msgid "Input source selection"
 msgstr ""
 
-#: ../lib/indicator-menu.vala:55
+#: ../lib/indicator-menu.vala:57
 msgid "Character Map"
 msgstr ""
 
-#: ../lib/indicator-menu.vala:56
+#: ../lib/indicator-menu.vala:58
 msgid "Keyboard Layout Chart"
 msgstr ""
 
-#: ../lib/indicator-menu.vala:57
+#: ../lib/indicator-menu.vala:59
 msgid "Text Entry Settings..."
 msgstr ""
 
-#: ../lib/indicator-menu.vala:63
+#: ../lib/indicator-menu.vala:121
 msgid "On screen keyboard"
 msgstr ""
