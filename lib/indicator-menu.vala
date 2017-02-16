@@ -52,6 +52,11 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 				submenu.append_section (null, properties_section);
 			}
 
+			if (Options.OSK_SWITCH in options) {
+				rebuild_osk_section(true);
+			}
+			submenu.append_section(null, osk_section);
+
 			if (Options.SETTINGS in options) {
 				var settings_section = new Menu ();
 				settings_section.append (_ ("Character Map"), "indicator.map");
@@ -59,11 +64,6 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 				settings_section.append (_ ("Text Entry Settings..."), "indicator.settings");
 				submenu.append_section (null, settings_section);
 			}
-
-			if (Options.OSK_SWITCH in options) {
-				rebuild_osk_section(true);
-			}
-			submenu.append_section(null, osk_section);
 
 			var indicator = new MenuItem.submenu (null, submenu);
 			indicator.set_detailed_action ("indicator.indicator");
