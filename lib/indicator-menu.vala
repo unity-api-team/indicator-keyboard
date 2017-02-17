@@ -31,7 +31,6 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 
 	private Menu indicator_menu;
 	private Menu sources_section;
-	private Menu osk_section;
 	private IBusMenu properties_section;
 
 	public IndicatorMenu (ActionMap? action_map = null, Options options = Options.NONE) {
@@ -39,7 +38,6 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 
 		indicator_menu = new Menu ();
 		sources_section = new Menu ();
-		osk_section = new Menu ();
 
 		if ((options & ~Options.DCONF) != Options.NONE) {
 			var submenu = new Menu ();
@@ -53,9 +51,12 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 			}
 
 			if (Options.OSK_SWITCH in options) {
-				rebuild_osk_section(true);
+				var osk_section = new Menu ();
+				var osk_item = new MenuItem(_("On screen keyboard"), "indicator.always-show-osk");
+				osk_item.set_attribute("x-canonical-type", "s", "com.canonical.indicator.switch");
+				osk_section.append_item(osk_item);
+				submenu.append_section(null, osk_section);
 			}
-			submenu.append_section(null, osk_section);
 
 			if (Options.SETTINGS in options) {
 				var settings_section = new Menu ();
@@ -110,16 +111,6 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 
 				sources_section.append_item (item);
 			}
-		}
-	}
-
-	public void rebuild_osk_section(bool enable) {
-		osk_section.remove_all();
-
-		if (enable) {
-			var osk_item = new MenuItem(_("On screen keyboard"), "indicator.always-show-osk");
-			osk_item.set_attribute("x-canonical-type", "s", "com.canonical.indicator.switch");
-			osk_section.append_item(osk_item);
 		}
 	}
 
