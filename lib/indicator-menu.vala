@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Canonical Ltd.
+ * Copyright 2014-2017 Canonical Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,13 +23,15 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 		DCONF    = 1 << 0,
 		XKB      = 1 << 1,
 		IBUS     = 1 << 2,
-		SETTINGS = 1 << 3
+		SETTINGS = 1 << 3,
+		OSK_SWITCH = 1 << 4
 	}
 
 	private Options options;
 
 	private Menu indicator_menu;
 	private Menu sources_section;
+	private Menu osk_section;
 	private IBusMenu properties_section;
 
 	public IndicatorMenu (ActionMap? action_map = null, Options options = Options.NONE) {
@@ -37,6 +39,7 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 
 		indicator_menu = new Menu ();
 		sources_section = new Menu ();
+		osk_section = new Menu ();
 
 		if ((options & ~Options.DCONF) != Options.NONE) {
 			var submenu = new Menu ();
@@ -48,6 +51,11 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 				properties_section.activate.connect ((property, state) => { activate (property, state); });
 				submenu.append_section (null, properties_section);
 			}
+
+			if (Options.OSK_SWITCH in options) {
+				rebuild_osk_section(true);
+			}
+			submenu.append_section(null, osk_section);
 
 			if (Options.SETTINGS in options) {
 				var settings_section = new Menu ();
@@ -102,6 +110,16 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 
 				sources_section.append_item (item);
 			}
+		}
+	}
+
+	public void rebuild_osk_section(bool enable) {
+		osk_section.remove_all();
+
+		if (enable) {
+			var osk_item = new MenuItem(_("On-screen keyboard"), "indicator.always-show-osk");
+			osk_item.set_attribute("x-canonical-type", "s", "com.canonical.indicator.switch");
+			osk_section.append_item(osk_item);
 		}
 	}
 
