@@ -1,3 +1,9 @@
+indicator-keyboard (0.0.0+17.04.20170301-0ubuntu1) zesty; urgency=medium
+
+  * Add an OSK switch to the keyboard indicator (LP: #1521518)
+
+ -- Lukáš Tinkl <lukas.tinkl@canonical.com>  Wed, 01 Mar 2017 13:42:36 +0000
+
 indicator-keyboard (0.0.0+17.04.20170207-0ubuntu1) zesty; urgency=medium
 
   * Remove the xdg autostart files.
