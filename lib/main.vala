@@ -144,6 +144,9 @@ public class Indicator.Keyboard.Service : Object {
 		var sss = SettingsSchemaSource.get_default();
 		if (sss.lookup("com.canonical.Unity8", true) != null) {
 			unity8_settings = new Settings("com.canonical.Unity8");
+			((!) unity8_settings).changed["osk-switch-visible"].connect((key) => {
+				get_desktop_menu().rebuild_osk_section(((!) unity8_settings).get_boolean(key));
+			});
 		}
 
 		migrate_keyboard_layouts ();
@@ -1046,24 +1049,11 @@ public class Indicator.Keyboard.Service : Object {
 		action.activate.connect (handle_activate_settings);
 		group.add_action (action);
 
-		if (is_unity8_active()) {
-			SimpleAction osk_action = new SimpleAction.stateful("always-show-osk", null, new Variant.boolean(((!) unity8_settings).get_boolean("always-show-osk")));
-			osk_action.set_enabled(((!) unity8_settings).get_boolean("osk-switch-visible"));
-
-			// propagate changes from "osk_action" -> gsettings
-			osk_action.change_state.connect(() => {
-				osk_action.set_state (new Variant.boolean (!osk_action.get_state().get_boolean()));
-				((!) unity8_settings).set_boolean("always-show-osk", osk_action.get_state().get_boolean());
-			});
-
-			// propagate changes from gsettings -> "osk_action"
-			((!) unity8_settings).changed["osk-switch-visible"].connect((key) => {
-				osk_action.set_enabled(((!) unity8_settings).get_boolean(key));
-			});
-			((!) unity8_settings).changed["always-show-osk"].connect((key) => {
-				osk_action.set_state(((!) unity8_settings).get_boolean(key));
-			});
-			group.add_action(osk_action);
+		if (is_unity8_active() && unity8_settings != null) {
+			Action? osk_action = ((!) unity8_settings).create_action("always-show-osk");
+			if (osk_action != null) {
+				group.add_action((!) osk_action);
+			}
 		}
 
 		return group;
@@ -1091,7 +1081,7 @@ public class Indicator.Keyboard.Service : Object {
 				}
 			}
 
-			if (is_unity8_active()) {
+			if (is_unity8_active() && ((!)unity8_settings).get_boolean("osk-switch-visible")) {
 				options |= IndicatorMenu.Options.OSK_SWITCH;
 			}
 
