@@ -117,7 +117,7 @@ public class Indicator.Keyboard.IndicatorMenu : MenuModel {
 		osk_section.remove_all();
 
 		if (enable) {
-			var osk_item = new MenuItem(_("On screen keyboard"), "indicator.always-show-osk");
+			var osk_item = new MenuItem(_("On-screen keyboard"), "indicator.always-show-osk");
 			osk_item.set_attribute("x-canonical-type", "s", "com.canonical.indicator.switch");
 			osk_section.append_item(osk_item);
 		}
